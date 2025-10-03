@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スコアボード</title>
+    <style>
+        /* --- ページ全体のスタイル --- */
+        body {
+            font-family: 'Segoe UI', Meiryo, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a237e;
+            font-size: 2.5rem;
+        }
+
+        /* --- 2つのコートを横並びにするレイアウト --- */
+        .container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap; /* 画面が狭いときは折り返す */
+            gap: 20px;
+        }
+
+        /* --- 各コートのスタイル --- */
+        .court {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+            width: 45%;
+            min-width: 400px;
+            box-sizing: border-box;
+        }
+
+        .court-header {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: bold;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        /* 赤コートのスタイル */
+        #red-court {
+            border: 3px solid #d32f2f;
+        }
+        #red-court .court-header {
+            color: #d32f2f;
+            border-bottom: 2px solid #ffcdd2;
+        }
+
+        /* 青コートのスタイル */
+        #blue-court {
+            border: 3px solid #1976d2;
+        }
+        #blue-court .court-header {
+            color: #1976d2;
+            border-bottom: 2px solid #bbdefb;
+        }
+        
+        /* --- 合計得点のスタイル（一番大事な部分） --- */
+        .total-score {
+            font-size: 7rem; /* とても大きく */
+            font-weight: 900; /* 一番太く */
+            text-align: center;
+            margin: 10px 0 30px 0;
+            line-height: 1;
+            transition: color 0.3s ease;
+        }
+
+        /* --- 各得点項目のスタイル --- */
+        .score-item {
+            display: grid;
+            grid-template-columns: 1fr 120px 80px;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .score-item:last-child {
+            border-bottom: none;
+        }
+        
+        .item-description {
+            font-size: 0.95rem;
+        }
+
+        .item-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .item-count {
+            font-size: 1.5rem;
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .item-subtotal {
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: right;
+            color: #555;
+        }
+        
+        /* --- ボタンのスタイル --- */
+        button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%; /* 丸いボタン */
+            border: 2px solid;
+            font-size: 1.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #fff;
+            transition: background-color 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-plus { color: #2e7d32; border-color: #2e7d32; }
+        .btn-plus:hover { background-color: #e8f5e9; }
+
+        .btn-minus { color: #c62828; border-color: #c62828; }
+        .btn-minus:hover { background-color: #ffebee; }
+
+        /* スマートフォン用の調整 */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .court {
+                width: 100%;
+                min-width: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>スコアボード</h1>
+
+    <div class="container">
+        <div class="court" id="red-court">
+            <div class="court-header">赤コート</div>
+            <div class="total-score" id="red-total-score">0</div>
+            <div id="red-items"></div>
+        </div>
+
+        <div class="court" id="blue-court">
+            <div class="court-header">青コート</div>
+            <div class="total-score" id="blue-total-score">0</div>
+            <div id="blue-items"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 設定 ---
+        // 各項目のルール（点数、最大数など）
+        const scoreRules = {
+            'A': { description: 'A.「竜宮エリア」に初めて「進入」する。', points: 10, max: 1 },
+            'B': { description: 'B.「玉」が「宝箱」に「収納」されている。', points: 20, max: 4 }, // 80 / 20 = 4
+            'C': { description: 'C.「珊瑚」が「宝箱」に「収納」されている。', points: 25, max: 5 }, // 125 / 25 = 5
+            'D': { description: 'D. 初めて「玉手箱」を達成する。', points: 100, max: 1 },
+            'E': { description: 'E.「玉」が「浜辺ゾーン」内に完全に収まっているか、または「浜辺ゾーン」内にいずれかの面が接地している「宝箱」に「収納」されている。', points: 15, max: 4 }, // 60 / 15 = 4
+            'F': { description: 'F.「珊瑚」が「浜辺ゾーン」内に完全に収まっているか、または「浜辺ゾーン」内にいずれかの面が接地している「宝箱」に「収納」されている。', points: 20, max: 5 }, // 100 / 20 = 5
+            'G': { description: 'G. 自チームのコート内の「石」が競技開始時(4つ)より多い。', points: -20, max: 4 } // -80 / -20 = 4
+        };
+
+        // --- アプリケーションの状態 ---
+        // 各チームの各項目の現在の個数を保存
+        const state = {
+            red: {},
+            blue: {}
+        };
+
+        // --- 初期化処理 ---
+        function initialize() {
+            const redItemsContainer = document.getElementById('red-items');
+            const blueItemsContainer = document.getElementById('blue-items');
+
+            // scoreRulesに基づいて、各項目の初期状態を設定し、HTMLを生成する
+            for (const key in scoreRules) {
+                // stateの初期化
+                state.red[key] = 0;
+                state.blue[key] = 0;
+
+                // HTML要素の生成
+                const rule = scoreRules[key];
+                const itemHTML = `
+                    <div class="score-item" id="red-item-${key}">
+                        <div class="item-description">${rule.description}</div>
+                        <div class="item-controls">
+                            <button class="btn-minus" data-team="red" data-item="${key}">-</button>
+                            <div class="item-count" id="red-count-${key}">0</div>
+                            <button class="btn-plus" data-team="red" data-item="${key}">+</button>
+                        </div>
+                        <div class="item-subtotal" id="red-subtotal-${key}">0 点</div>
+                    </div>
+                `;
+                redItemsContainer.innerHTML += itemHTML;
+                blueItemsContainer.innerHTML += itemHTML.replace(/red/g, 'blue'); // redをblueに置換して青コート用を生成
+            }
+            
+            // ボタンにイベントリスナーを追加
+            document.querySelectorAll('button').forEach(button => {
+                button.addEventListener('click', handleButtonClick);
+            });
+        }
+
+        // --- ボタンがクリックされたときの処理 ---
+        function handleButtonClick(event) {
+            const team = event.target.dataset.team;
+            const itemKey = event.target.dataset.item;
+            const isPlus = event.target.classList.contains('btn-plus');
+            
+            const maxCount = scoreRules[itemKey].max;
+
+            if (isPlus) {
+                // プラスボタン：最大数未満なら1増やす
+                if (state[team][itemKey] < maxCount) {
+                    state[team][itemKey]++;
+                }
+            } else {
+                // マイナスボタン：0より大きいなら1減らす
+                if (state[team][itemKey] > 0) {
+                    state[team][itemKey]--;
+                }
+            }
+            
+            // 画面を更新
+            updateUI(team);
+        }
+
+        // --- UI（画面表示）の更新 ---
+        function updateUI(team) {
+            let totalScore = 0;
+            
+            for (const key in scoreRules) {
+                const count = state[team][key];
+                const rule = scoreRules[key];
+                const subtotal = count * rule.points;
+                totalScore += subtotal;
+
+                // 項目の個数を更新
+                document.getElementById(`${team}-count-${key}`).textContent = count;
+                // 項目の小計を更新
+                document.getElementById(`${team}-subtotal-${key}`).textContent = `${subtotal} 点`;
+            }
+
+            // 合計得点を更新
+            const totalScoreElement = document.getElementById(`${team}-total-score`);
+            totalScoreElement.textContent = totalScore;
+
+            // 得点に応じて色を変更
+            if (totalScore > 0) {
+                totalScoreElement.style.color = (team === 'red') ? '#c62828' : '#1565c0';
+            } else if (totalScore < 0) {
+                totalScoreElement.style.color = '#757575';
+            } else {
+                totalScoreElement.style.color = '#333';
+            }
+        }
+        
+        // --- ページの読み込みが完了したら初期化処理を実行 ---
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>

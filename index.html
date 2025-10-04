@@ -162,12 +162,30 @@
         <div class="court" id="red-court">
             <div class="court-header">赤コート</div>
             <div class="total-score" id="red-total-score">0</div>
+            <div class="score-item">
+                <div class="item-description" style="font-weight: bold; color: #b71c1c;">Vゴール達成</div>
+                <div class="item-controls">
+                    <button class="btn-minus" data-team="red" data-vgoal="false">-</button>
+                    <div class="item-count" id="red-vgoal-status">--</div>
+                    <button class="btn-plus" data-team="red" data-vgoal="true">+</button>
+                </div>
+                <div class="item-subtotal"></div>
+            </div>
             <div id="red-items"></div>
         </div>
 
         <div class="court" id="blue-court">
             <div class="court-header">青コート</div>
             <div class="total-score" id="blue-total-score">0</div>
+            <div class="score-item">
+                <div class="item-description" style="font-weight: bold; color: #0d47a1;">Vゴール達成</div>
+                <div class="item-controls">
+                    <button class="btn-minus" data-team="blue" data-vgoal="false">-</button>
+                    <div class="item-count" id="blue-vgoal-status">--</div>
+                    <button class="btn-plus" data-team="blue" data-vgoal="true">+</button>
+                </div>
+                <div class="item-subtotal"></div>
+            </div>
             <div id="blue-items"></div>
         </div>
     </div>
@@ -186,10 +204,10 @@
         };
 
         // --- アプリケーションの状態 ---
-        // 各チームの各項目の現在の個数を保存
+        // 各チームの各項目の現在の個数とVゴールの状態を保存
         const state = {
-            red: {},
-            blue: {}
+            red: { vgoal: false },
+            blue: { vgoal: false }
         };
 
         // --- 初期化処理 ---
@@ -220,14 +238,28 @@
                 blueItemsContainer.innerHTML += itemHTML.replace(/red/g, 'blue'); // redをblueに置換して青コート用を生成
             }
             
-            // ボタンにイベントリスナーを追加
+            // 全てのボタンにイベントリスナーを追加
             document.querySelectorAll('button').forEach(button => {
-                button.addEventListener('click', handleButtonClick);
+                if (button.dataset.item) {
+                    // 通常の得点アイテムボタン
+                    button.addEventListener('click', handleScoreButtonClick);
+                } else if (button.dataset.vgoal) {
+                    // Vゴールボタン
+                    button.addEventListener('click', handleVGoalButtonClick);
+                }
             });
         }
 
-        // --- ボタンがクリックされたときの処理 ---
-        function handleButtonClick(event) {
+        // --- Vゴールボタンがクリックされたときの処理 ---
+        function handleVGoalButtonClick(event) {
+            const team = event.target.dataset.team;
+            const isAchieved = event.target.dataset.vgoal === 'true';
+            state[team].vgoal = isAchieved;
+            updateUI(team);
+        }
+
+        // --- 通常の得点ボタンがクリックされたときの処理 ---
+        function handleScoreButtonClick(event) {
             const team = event.target.dataset.team;
             const itemKey = event.target.dataset.item;
             const isPlus = event.target.classList.contains('btn-plus');
@@ -252,31 +284,39 @@
 
         // --- UI（画面表示）の更新 ---
         function updateUI(team) {
+            const totalScoreElement = document.getElementById(`${team}-total-score`);
+
+            // Vゴールの状態表示を更新
+            document.getElementById(`${team}-vgoal-status`).textContent = state[team].vgoal ? '達成' : '--';
+
+            // --- 各項目のカウンターと小計を更新 ---
             let totalScore = 0;
-            
             for (const key in scoreRules) {
                 const count = state[team][key];
                 const rule = scoreRules[key];
                 const subtotal = count * rule.points;
                 totalScore += subtotal;
 
-                // 項目の個数を更新
                 document.getElementById(`${team}-count-${key}`).textContent = count;
-                // 項目の小計を更新
                 document.getElementById(`${team}-subtotal-${key}`).textContent = `${subtotal} 点`;
             }
 
-            // 合計得点を更新
-            const totalScoreElement = document.getElementById(`${team}-total-score`);
-            totalScoreElement.textContent = totalScore;
-
-            // 得点に応じて色を変更
-            if (totalScore > 0) {
-                totalScoreElement.style.color = (team === 'red') ? '#c62828' : '#1565c0';
-            } else if (totalScore < 0) {
-                totalScoreElement.style.color = '#757575';
+            // --- 合計スコア表示を更新 ---
+            if (state[team].vgoal) {
+                // Vゴールが達成されている場合
+                totalScoreElement.textContent = 'RYUGU';
+                totalScoreElement.style.color = '#DAA520'; // 金色
             } else {
-                totalScoreElement.style.color = '#333';
+                // 通常のスコア表示
+                totalScoreElement.textContent = totalScore;
+                // 得点に応じて色を変更
+                if (totalScore > 0) {
+                    totalScoreElement.style.color = (team === 'red') ? '#c62828' : '#1565c0';
+                } else if (totalScore < 0) {
+                    totalScoreElement.style.color = '#757575';
+                } else {
+                    totalScoreElement.style.color = '#333';
+                }
             }
         }
         
